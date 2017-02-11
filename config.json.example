@@ -1,0 +1,23 @@
+{
+    "mysql":{
+        "host":"localhost",
+        "user":"root",
+        "passwd":"my secret password",
+        "db":"database name"
+    },
+    'twilio': {
+	'sid': 'XXXXXXX',
+	'secreet': 'XXXXXXXX',
+	'send-to': '077121231234'
+    },
+    'plants': {
+ 	{
+	    'gpio-channel': 14,
+	    'plant-name': 'Plant one'
+        },
+	{
+            'gpio-channel': 15,
+            'plant-name': 'Plant two'
+        },
+    }
+}
