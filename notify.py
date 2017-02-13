@@ -8,11 +8,13 @@ import time # This is the time library, we need this so we can use the sleep fun
 
 with open('config.json') as data_file:    
     data = json.load(data_file)
-    sid = twilio.sid
-    secret = twilio.secret
+    sid = data.twilio.sid
+    secret = data.twilio.secret
     client = TwilioRestClient(sid, secret)
-    send-to = twilio.send-o
+    sendto = data.twilio.sendto
+    from_ = data.twilio.from_
+
 
 # Function for sending a text message using the twilio api
 def sendTextMessage(whoTo, message):
-        client.messages.create(to=whoTo, from_='441133206486', body=message)
+    client.messages.create(to=whoTo, from_=from_, body=message)

@@ -1,51 +1,84 @@
 #!/usr/bin/python
 
-# Start by importing the libraries we want to use
-
-import RPi.GPIO as GPIO # This is the GPIO library we need to use the GPIO pins on the Raspberry Pi
-import time # This is the time library, we need this so we can use the sleep function
-
-lastReading = 'STARTINGVALUE'
+import sys
+import RPi.GPIO as GPIO
+import time
+import json
+import mysql.connector
+from mysql.connector import Error
 
 readings = {}
-readings[14] = 'startingvalue'
-readings[15] = 'startingvalue'
 
-# This is our callback function, this function will be called every time there is a change on the specified GPIO channel, in this example we are using 17
+# Gather the configuration from the config.json
+with open('config.json') as data_file:
+    data = json.load(data_file)
+
+    # Database credentials
+    host = data["config"]["mysql"]["host"]
+    user = data["config"]["mysql"]["user"]
+    password = data["config"]["mysql"]["password"]
+    db = data["config"]["mysql"]["db"]
+
+    # Plants
+    readings = []
+    for plant in data["config"]["plants"]:
+        readings.append({'channel': plant['gpio-channel'],'name': plant['plant-name'], 'reading': 'startingvalue'})
+
+
+def write_to_database(reading_type, message):
+    try:
+        conn = mysql.connector.connect(host=host,
+                                       database=db,
+                                       user=user,
+                                       password=password)
+        if conn.is_connected():
+            query = "INSERT INTO readings(type, message, datetime) " \
+                    "VALUES(%s,%s)"
+            args = (reading_type, message, time.strftime('%Y-%m-%d %H:%M:%S'))
+            cursor = conn.cursor()
+            cursor.execute(query, args)
+
+    except Error as e:
+        print(e)
+
+    finally:
+        conn.close()
+
+
+
+# Loop over the readings and find the name
+def find_channel_name (channel):
+    for plant in readings:
+        if plant['channel'] == channel:
+            return plant['name']
+    raise Exception('No plant with id ' + channel + ' could be found')
+
+
+# This is the function we call when the state of the moisture changes
 def callback(channel):
+    name = find_channel_name(channel)
 
-	if channel == 14:
-		name = 'Plant 4'
-	else:
-		name = 'Plant 5'
-
-	if GPIO.input(channel) == readings[channel]:
-		return
+    if GPIO.input(channel) == readings[channel]:
+        return
  
-	if GPIO.input(channel):
-		message = "Moisture no longer detected on plant " + name +  " - Current date & time " + time.strftime("%c")
-		sendTextMessage('07903869591', message)
-		print message
-	
-	readings[channel] = GPIO.input(channel)
-		
+    if GPIO.input(channel):
+        message = "Moisture no longer detected on plant " + name + " - Current date & time " + time.strftime("%c")
+        write_to_database(0, message)
+    else:
+        message = "Moisture has been detected on plant " + name + " - Current date & time " + time.strftime("%c")
+        write_to_database(1, message)
 
-# Set our GPIO numbering to BCM
+    print(message)
+    readings[channel] = GPIO.input(channel)
+
+# Set the mode
 GPIO.setmode(GPIO.BCM)
 
-# Define the GPIO pin that we have our digital output from our sensor connected to
-channel = 14
-GPIO.setup(channel, GPIO.IN)
-GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=300)
-GPIO.add_event_callback(channel, callback)
+# Register the gpio listening events
+for plant in readings:
+    GPIO.setup(plant['channel'], GPIO.IN)
+    GPIO.add_event_detect(plant['channel'], GPIO.BOTH, bouncetime=300)
+    GPIO.add_event_callback(plant['channel'], callback)
 
-#
-channel = 15
-GPIO.setup(channel, GPIO.IN)
-GPIO.add_event_detect(channel, GPIO.BOTH, bouncetime=300)
-GPIO.add_event_callback(channel, callback)
-
-# This is an infinte loop to keep our script running
 while True:
-	# This line simply tells our script to wait 0.1 of a second, this is so the script doesnt hog all of the CPU
-	time.sleep(0.1)
+    time.sleep(0.1)
