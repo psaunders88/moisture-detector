@@ -53,12 +53,17 @@ def find_channel_name (channel):
             return plant['name']
     raise Exception('No plant with id ' + channel + ' could be found')
 
+def find_channel_last_reading(channel):
+    for plant in readings:
+        if plant['channel'] == channel:
+            return plant['reading']
+    raise Exception('No plant with id ' + channel + ' could be found')
 
 # This is the function we call when the state of the moisture changes
 def callback(channel):
     name = find_channel_name(channel)
 
-    if GPIO.input(channel) == readings[channel]:
+    if GPIO.input(channel) == find_channel_last_reading(channel):
         return
  
     if GPIO.input(channel):
